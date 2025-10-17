@@ -1,4 +1,5 @@
 import { FileChange } from '../types/common';
+import { getFormattedTimestamp } from '../utils/timezone';
 
 export interface MRInfo {
   title: string;
@@ -219,7 +220,7 @@ export class MRGenerator {
     // Add footer
     description += '---\n\n';
     description += '*🤖 This merge request was generated automatically by Claude Webhook Bot*\n';
-    description += `*Generated at: ${new Date().toISOString()}*`;
+    description += `*Generated at: ${getFormattedTimestamp('datetime')}*`;
 
     return description;
   }

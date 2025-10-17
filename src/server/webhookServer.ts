@@ -4,6 +4,7 @@ import { verifyGitLabSignature } from '../utils/webhook';
 import logger from '../utils/logger';
 import { GitLabWebhookEvent } from '../types/gitlab';
 import { EventProcessor } from '../services/eventProcessor';
+import { getFormattedTimestamp } from '../utils/timezone';
 
 export class WebhookServer {
   private app: express.Application;
@@ -28,7 +29,7 @@ export class WebhookServer {
     this.app.get('/health', (req: Request, res: Response) => {
       const health = {
         status: 'healthy',
-        timestamp: new Date().toISOString(),
+        timestamp: getFormattedTimestamp('datetime'),
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         version: '1.0.0',

@@ -1,6 +1,7 @@
 import { Gitlab } from '@gitbeaker/node';
 import { config } from '../utils/config';
 import logger from '../utils/logger';
+import { getFormattedTimestamp } from '../utils/timezone';
 
 export class GitLabService {
   private gitlab: InstanceType<typeof Gitlab>;
@@ -290,7 +291,7 @@ export class GitLabService {
       }
 
       const author = note.author?.name || note.author?.username || 'Unknown';
-      const timestamp = new Date(note.created_at).toLocaleString();
+      const timestamp = getFormattedTimestamp('datetime');
 
       context += `**${author}** (${timestamp}):\n`;
       context += `${note.body}\n\n`;

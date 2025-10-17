@@ -5,6 +5,7 @@ import { ProjectManager } from './projectManager';
 import { StreamingClaudeExecutor, StreamingProgressCallback } from './streamingClaudeExecutor';
 import { GitLabService } from './gitlabService';
 import { MRGenerator } from '../utils/mrGenerator';
+import { getFormattedTimestamp } from '../utils/timezone';
 
 export class EventProcessor {
   private projectManager: ProjectManager;
@@ -659,7 +660,7 @@ export class EventProcessor {
 
     try {
       // Add new message to the progress log
-      const timestamp = new Date().toISOString().slice(11, 19);
+      const timestamp = getFormattedTimestamp('time');
       const formattedMessage = `[${timestamp}] ${message}`;
 
       // Check for duplicate messages (ignore timestamp, only check the message content)
@@ -695,7 +696,7 @@ export class EventProcessor {
         commentBody += '\n⏳ *Processing...*';
       }
 
-      commentBody += `\n\n---\n*Last updated: ${new Date().toISOString()}*`;
+      commentBody += `\n\n---\n*Last updated: ${getFormattedTimestamp('datetime')}*`;
 
       // Update the comment
       await this.updateComment(event, this.currentCommentId, commentBody);
