@@ -6,7 +6,6 @@ import { StreamingClaudeExecutor, StreamingProgressCallback } from './streamingC
 import { GitLabService } from './gitlabService';
 import { MRGenerator } from '../utils/mrGenerator';
 import { getFormattedTimestamp } from '../utils/timezone';
-import { MarkdownFormatter } from '../utils/markdownFormatter';
 
 export class EventProcessor {
   private projectManager: ProjectManager;
@@ -385,9 +384,7 @@ export class EventProcessor {
     let responseMessage = '✅ Claude processed your request successfully.\n\n';
 
     if (result.output) {
-      // Format Claude's output to ensure proper GitLab Markdown rendering
-      const formattedOutput = MarkdownFormatter.formatForGitLab(result.output);
-      responseMessage += `${formattedOutput}\n\n`;
+        responseMessage += `${result.output}\n\n`;
     }
 
     if (result.changes?.length > 0) {
