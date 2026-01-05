@@ -49,7 +49,7 @@ export class MRGenerator {
     const title = this.generateTitle(type, instruction, scope);
     const description = this.generateDescription(options, type);
 
-    return { title, description, commitMessage: this.generateCommitMessage(title, instruction) };
+    return { title, description, commitMessage: this.generateCommitMessage(title) };
   }
 
   private static determineChangeType(instruction: string, changes: FileChange[]): string {
@@ -127,14 +127,8 @@ export class MRGenerator {
   }
 
   private static generateTitle(type: string, instruction: string, scope: string | null): string {
-    // Extract the core action/subject from instruction
-    const cleanInstruction = instruction
-      .replace(/^@claude\s*/i, '') // Remove @claude prefix
-      .replace(/^please\s*/i, '') // Remove polite prefixes
-      .trim();
-
-    // Create a concise summary (max 50 chars for good practice)
-    let summary = this.extractSummary(cleanInstruction);
+    // Generate summary based on file changes rather than user instruction
+    let summary = this.generateSummaryFromChanges(type, scope);
 
     // Format as conventional commit
     const prefix = scope ? `${type}(${scope})` : type;
@@ -150,40 +144,34 @@ export class MRGenerator {
     return title;
   }
 
-  private static extractSummary(instruction: string): string {
-    // Remove common prefixes and clean up
-    const cleaned = instruction
-      .replace(/^(can you |could you |would you |please )/i, '')
-      .replace(/\?+$/, '') // Remove question marks
-      .trim();
+  private static generateSummaryFromChanges(type: string, scope: string | null): string {
+    // Generate professional summary based on change type and scope
+    const summaryMap: Record<string, string> = {
+      feat: scope ? `add ${scope} functionality` : 'add new functionality',
+      fix: scope ? `fix ${scope} issues` : 'fix bugs and issues',
+      refactor: scope ? `refactor ${scope} code` : 'refactor code structure',
+      docs: scope ? `update ${scope} documentation` : 'update documentation',
+      style: scope ? `format ${scope} code` : 'format code style',
+      test: scope ? `add ${scope} tests` : 'add test coverage',
+      chore: scope ? `update ${scope} configuration` : 'update configuration',
+    };
 
-    // Take first sentence or first 50 characters
-    const sentences = cleaned.split(/[.!?]+/);
-    let summary = sentences[0].trim();
-
-    // Capitalize first letter
-    summary = summary.charAt(0).toUpperCase() + summary.slice(1);
-
-    // Limit length
-    if (summary.length > 50) {
-      summary = summary.substring(0, 47) + '...';
-    }
-
-    return summary;
+    return summaryMap[type] || (scope ? `update ${scope}` : 'update code');
   }
 
   private static generateDescription(options: MROptions, type: string): string {
-    const { instruction, context, changes } = options;
+    const { context, changes } = options;
 
     let description = '';
 
-    // Add summary section
+    // Add summary section - only include basic context without conversation history
     description += '## Summary\n\n';
-    description += `${this.formatInstruction(instruction)}\n\n`;
+    description += `This merge request contains automated changes made by Claude AI assistant.\n\n`;
 
-    // Add context if available
-    if (context && !context.includes('comment')) {
-      description += `**Source:** ${context}\n\n`;
+    // Add simplified context - extract only the essential information
+    const simplifiedContext = this.extractEssentialContext(context);
+    if (simplifiedContext) {
+      description += `**Source:** ${simplifiedContext}\n\n`;
     }
 
     // Add changes section
@@ -225,11 +213,26 @@ export class MRGenerator {
     return description;
   }
 
-  private static formatInstruction(instruction: string): string {
-    // Clean up the instruction for display
-    const cleaned = instruction.replace(/^@claude\s*/i, '').trim();
+  private static extractEssentialContext(context: string): string | null {
+    if (!context || !context.trim()) {
+      return null;
+    }
 
-    return cleaned;
+    // Extract only the issue/MR reference, not the full conversation history
+    const issueMatch = context.match(/Issue #(\d+):/);
+    const mrMatch = context.match(/MR #(\d+):/);
+
+    if (issueMatch) {
+      return `Issue #${issueMatch[1]}`;
+    }
+
+    if (mrMatch) {
+      return `MR #${mrMatch[1]}`;
+    }
+
+    // If no specific reference found, return first line only
+    const firstLine = context.split('\n')[0];
+    return firstLine.length > 100 ? firstLine.substring(0, 100) + '...' : firstLine;
   }
 
   private static groupChangesByType(changes: FileChange[]): Record<string, FileChange[]> {
@@ -281,42 +284,9 @@ export class MRGenerator {
     return section;
   }
 
-  private static generateCommitMessage(title: string, instruction: string): string {
+  private static generateCommitMessage(title: string): string {
     // Use the generated title as the commit message header
-    let commitMessage = title;
-
-    // Add description if the instruction is complex enough
-    const cleanInstruction = instruction.replace(/^@claude\s*/i, '').trim();
-
-    if (cleanInstruction.length > 60) {
-      // Add multi-line commit message with details
-      commitMessage += '\n\n';
-      commitMessage += this.wrapText(cleanInstruction, 72);
-    }
-
-    return commitMessage;
-  }
-
-  private static wrapText(text: string, maxLength: number): string {
-    const words = text.split(/\s+/);
-    const lines: string[] = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      if (currentLine.length + word.length + 1 <= maxLength) {
-        currentLine = currentLine ? `${currentLine} ${word}` : word;
-      } else {
-        if (currentLine) {
-          lines.push(currentLine);
-        }
-        currentLine = word;
-      }
-    }
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-
-    return lines.join('\n');
+    // This ensures commit message is based on actual changes, not user conversation
+    return title;
   }
 }

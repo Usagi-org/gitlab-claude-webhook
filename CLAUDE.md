@@ -17,12 +17,24 @@ npm run lint
 # Run tests
 npm test
 
+# Run tests with coverage
+npm run test:coverage
+
+# Type checking without emitting files
+npm run type-check
+
+# Format checking
+npm run format:check
+
 # Production start
 npm start
 
 # Docker development
 docker-compose up -d
 docker-compose logs -f gitlab-claude-webhook
+
+# Check Claude CLI availability
+claude --version
 ```
 
 ## Architecture Overview
@@ -37,6 +49,16 @@ This is a GitLab webhook service that integrates with Claude Code CLI to provide
 4. **Claude Execution** (`src/services/streamingClaudeExecutor.ts`) - Executes Claude Code CLI with streaming progress updates
 5. **MR Generation** (`src/utils/mrGenerator.ts`) - Creates smart merge requests with conventional commit titles and structured descriptions
 6. **GitLab Integration** (`src/services/gitlabService.ts`) - Handles all GitLab API interactions
+
+### Technology Stack
+
+- **Runtime**: Node.js 18+ with TypeScript 5.3+
+- **Web Framework**: Express.js for webhook server
+- **Git Operations**: simple-git library
+- **GitLab API**: @gitbeaker/node
+- **Logging**: Winston
+- **Testing**: Jest with ts-jest
+- **Process Management**: child_process for Claude CLI execution
 
 ### Key Components
 
@@ -67,6 +89,16 @@ This is a GitLab webhook service that integrates with Claude Code CLI to provide
 - Handles branch creation and switching
 - Manages commits and pushes with proper cleanup
 
+### Important Design Patterns
+
+**Streaming Progress Updates**: The service uses real-time streaming to provide feedback to GitLab during Claude execution. Progress messages are posted as comments, allowing users to see what Claude is doing in real-time.
+
+**Timestamped Branches**: Each Claude execution creates a unique branch with format `claude-YYYYMMDDTHHMMSS-XXXXXX` to avoid conflicts and enable parallel processing.
+
+**Conventional Commits**: MR titles follow conventional commit format (`type(scope): description`) automatically determined from instruction content and file changes.
+
+**Error Recovery**: Comprehensive error handling with detailed logging and user-friendly error messages posted back to GitLab.
+
 ## Environment Configuration
 
 Required environment variables:
@@ -82,6 +114,7 @@ Optional:
 - `PORT` (default: 3000)
 - `WORK_DIR` (default: /tmp/gitlab-claude-work)
 - `LOG_LEVEL` (default: info)
+- `CLAUDE_SYSTEM_PROMPT` (optional: custom system prompt for Claude CLI)
 
 ## GitLab Webhook Setup
 
@@ -123,8 +156,36 @@ npm install -g @anthropic-ai/claude-code
 - `/src/types/gitlab.ts` - GitLab webhook event type definitions
 - `/src/types/common.ts` - Shared interfaces (ProcessResult, FileChange)
 - `/src/utils/webhook.ts` - Webhook signature verification and instruction extraction
-- `/src/utils/config.ts` - Environment configuration loading
+- `/src/utils/config.ts` - Environment configuration loading with variable expansion
 - `/src/utils/logger.ts` - Winston-based logging configuration
+- `/src/utils/timezone.ts` - Timezone utilities for timestamp formatting
+
+## Development Guidelines
+
+### When Modifying Code
+
+**StreamingClaudeExecutor**: This is the core component that executes Claude CLI. When modifying:
+- Maintain streaming progress updates to GitLab
+- Preserve timeout handling (default 10 minutes)
+- Keep comprehensive error logging for debugging
+- Ensure proper cleanup of child processes
+
+**EventProcessor**: The main orchestrator. When modifying:
+- Maintain the workflow: extract instruction → clone project → create branch → execute Claude → create MR
+- Preserve real-time feedback via GitLab comments
+- Keep error reporting to users via GitLab comments
+
+**MRGenerator**: Handles smart MR creation. When modifying:
+- Maintain conventional commit format detection
+- Preserve scope auto-detection from file paths
+- Keep structured description generation with testing checklists
+
+### Testing
+
+- Tests are located in `src/__tests__/`
+- Use Jest for unit testing
+- Mock external dependencies (GitLab API, git operations, Claude CLI)
+- Run `npm test` before committing changes
 
 ## Troubleshooting
 

@@ -97,7 +97,8 @@ export interface GitLabWebhookEvent {
 
 export interface ClaudeInstruction {
   command: string;
-  context: string;
+  context: string; // Full context with conversation history for Claude execution
+  mrContext?: string; // Simplified context for MR generation (without conversation history)
   files?: string[];
   branch?: string;
   tag?: string;

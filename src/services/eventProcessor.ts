@@ -6,6 +6,7 @@ import { StreamingClaudeExecutor, StreamingProgressCallback } from './streamingC
 import { GitLabService } from './gitlabService';
 import { MRGenerator } from '../utils/mrGenerator';
 import { getFormattedTimestamp } from '../utils/timezone';
+import { MarkdownFormatter } from '../utils/markdownFormatter';
 
 export class EventProcessor {
   private projectManager: ProjectManager;
@@ -52,12 +53,14 @@ export class EventProcessor {
     let content = '';
     let branch = '';
     let context = '';
+    let mrContext = ''; // Simplified context for MR generation
 
     switch (event.object_kind) {
       case 'issue':
         if (event.issue) {
           content = event.issue.description || '';
           context = `Issue #${event.issue.iid}: ${event.issue.title}`;
+          mrContext = `Issue #${event.issue.iid}: ${event.issue.title}`; // Keep simple for MR
           branch = event.project.default_branch;
         }
         break;
@@ -66,6 +69,7 @@ export class EventProcessor {
         if (event.merge_request) {
           content = event.merge_request.description || '';
           context = await this.buildMergeRequestContext(event.merge_request, event.project.id);
+          mrContext = `MR #${event.merge_request.iid}: ${event.merge_request.title}`; // Keep simple for MR
           branch = event.merge_request.source_branch;
         }
         break;
@@ -76,7 +80,10 @@ export class EventProcessor {
           const noteId = (event.object_attributes as { id?: number }).id;
 
           if (event.issue) {
-            // Build enhanced context for issue comments
+            // Build simplified context for MR generation
+            mrContext = `Issue #${event.issue.iid}: ${event.issue.title}`;
+
+            // Build enhanced context for Claude execution (includes conversation history)
             context = `Issue #${event.issue.iid}: ${event.issue.title}\n\n**Issue Description:** ${event.issue.description ? (event.issue.description.length > 200 ? event.issue.description.substring(0, 200) + '...' : event.issue.description) : 'No description provided'}`;
             branch = event.project.default_branch;
 
@@ -85,7 +92,7 @@ export class EventProcessor {
               await this.getThreadContext('issue', event.project.id, event.issue.iid, noteId);
             }
 
-            // Get full conversation history for this issue
+            // Get full conversation history for Claude execution only
             const conversationHistory = await this.getConversationHistory(
               'issue',
               event.project.id,
@@ -96,7 +103,10 @@ export class EventProcessor {
               context = `${context}\n\n${conversationHistory}`;
             }
           } else if (event.merge_request) {
-            // Build enhanced context for merge request comments including code changes
+            // Build simplified context for MR generation
+            mrContext = `MR #${event.merge_request.iid}: ${event.merge_request.title}`;
+
+            // Build enhanced context for Claude execution (includes code changes)
             context = await this.buildMergeRequestContext(event.merge_request, event.project.id);
             branch = event.merge_request.source_branch;
 
@@ -105,7 +115,7 @@ export class EventProcessor {
               await this.getThreadContext('merge_request', event.project.id, event.merge_request.iid, noteId);
             }
 
-            // Get full conversation history for this merge request
+            // Get full conversation history for Claude execution only
             const conversationHistory = await this.getConversationHistory(
               'merge_request',
               event.project.id,
@@ -132,6 +142,7 @@ export class EventProcessor {
     return {
       command,
       context,
+      mrContext: mrContext || context, // Use mrContext if available, fallback to context
       branch,
     };
   }
@@ -374,7 +385,9 @@ export class EventProcessor {
     let responseMessage = '✅ Claude processed your request successfully.\n\n';
 
     if (result.output) {
-      responseMessage += `${result.output}\n\n`;
+      // Format Claude's output to ensure proper GitLab Markdown rendering
+      const formattedOutput = MarkdownFormatter.formatForGitLab(result.output);
+      responseMessage += `${formattedOutput}\n\n`;
     }
 
     if (result.changes?.length > 0) {
@@ -397,9 +410,10 @@ export class EventProcessor {
         await this.updateProgressComment(event, `Created branch: ${claudeBranch}`);
 
         // Generate MR info first to get the commit message
+        // Use mrContext (simplified) instead of full context to avoid conversation history in MR
         const mrInfo = MRGenerator.generateMR({
           instruction: instruction.command,
-          context: instruction.context,
+          context: instruction.mrContext || instruction.context,
           changes: result.changes,
           projectUrl: event.project.web_url,
         });
