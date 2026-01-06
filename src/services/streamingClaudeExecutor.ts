@@ -143,17 +143,13 @@ export class StreamingClaudeExecutor {
       const fullSystemPrompt =  `${baseSystemPrompt}\n\n${additionalSystemPrompt}`
 
       const claudeArgs = [
-        '--print', // Non-interactive mode, print response and exit
-        '--output-format',
-        'text', // Text output format
-        '--dangerously-skip-permissions', // Required for automated execution without user prompts
-        '--allowed-tools', // Correct parameter name (with hyphen)
-        'Bash,Read,Write,Edit,Glob,Grep,LS,MultiEdit,NotebookEdit', // Specify allowed tools
-        '--model',
-        'claude-sonnet-4-20250514', // Specify the model to use
-        '--append-system-prompt',
-        fullSystemPrompt, // Additional system prompt for automation
-        fullPrompt, // The complete prompt including context
+        '--print',
+        '--output-format', 'text',
+        '--dangerously-skip-permissions',
+        '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep,LS,MultiEdit,NotebookEdit',
+        '--max-turns', '50',
+        '--append-system-prompt', fullSystemPrompt,
+        fullPrompt,
       ];
 
       // Log the exact command being executed for debugging
@@ -323,6 +319,7 @@ export class StreamingClaudeExecutor {
       'how',
       'overview',
       'structure',
+      '检查',
       '介绍',
       '解释',
       '分析',
